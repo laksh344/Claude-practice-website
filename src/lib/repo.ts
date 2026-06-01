@@ -145,13 +145,14 @@ export async function getCurrentSession(): Promise<AuthSession | null> {
 
 export async function sendMagicLink(email: string): Promise<void> {
   if (!persistenceEnabled) return;
-  await auth("otp", {
+  // GoTrue's /otp endpoint reads the post-confirmation redirect from the
+  // `redirect_to` query parameter, not the JSON body (the `options.emailRedirectTo`
+  // shape is a supabase-js client convention this raw REST layer doesn't use).
+  // Mirrors signInWithProvider below.
+  const redirect = encodeURIComponent(authRedirectTo());
+  await auth(`otp?redirect_to=${redirect}`, {
     method: "POST",
-    body: JSON.stringify({
-      email,
-      create_user: true,
-      options: { email_redirect_to: authRedirectTo() },
-    }),
+    body: JSON.stringify({ email, create_user: true }),
   });
 }
 
