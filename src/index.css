@@ -1,0 +1,118 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* shadcn mapped to Lumina Precision */
+    --background: 0 0% 100%;
+    --foreground: 240 6% 10%;            /* #1D1D1F */
+    --card: 0 0% 100%;
+    --card-foreground: 240 6% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 6% 10%;
+    --primary: 211 100% 45%;             /* #0071E3 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 9% 96%;             /* #F5F5F7 */
+    --secondary-foreground: 240 6% 10%;
+    --muted: 240 9% 96%;
+    --muted-foreground: 240 2% 44%;      /* #6E6E73 */
+    --accent: 211 100% 96%;
+    --accent-foreground: 211 100% 35%;
+    --destructive: 3 100% 59%;           /* #FF3B30 */
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 6% 90%;                /* #E5E5E7 */
+    --input: 240 6% 90%;
+    --ring: 211 100% 45%;
+    --radius: 1rem;
+
+    /* semantic extras */
+    --success: 145 56% 49%;              /* #34C759 */
+    --warning: 36 100% 52%;              /* #FF9F0A */
+    --surface: 240 9% 96%;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv11", "ss01";
+    font-variation-settings: "opsz" 32;
+  }
+  ::selection { background: hsl(211 100% 45% / 0.16); }
+}
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .tracking-tightest { letter-spacing: -0.03em; }
+  .glass {
+    background: rgba(255,255,255,0.72);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+  }
+  .glass-dark {
+    background: rgba(10,10,12,0.6);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+  }
+  .shadow-ambient {
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+  }
+  .shadow-lift {
+    box-shadow: 0 24px 48px -12px rgba(0,0,0,0.18), 0 8px 16px -8px rgba(0,0,0,0.08);
+  }
+  .shadow-soft {
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px -12px rgba(0,0,0,0.10);
+  }
+  .bg-grid {
+    background-image: radial-gradient(circle at 1px 1px, rgba(0,0,0,0.05) 1px, transparent 0);
+    background-size: 28px 28px;
+  }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+}
+
+@keyframes fade-up { from { opacity:0; transform: translateY(16px);} to {opacity:1; transform:none;} }
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+
+/* ── Cursor energy system ──────────────────────────────────────────────── */
+/* Per-card hover spotlight that follows the cursor (coords set by CursorEnergy
+   via --ex/--ey). The glow sits above the card background but below content. */
+@layer utilities {
+  .energy-card { position: relative; isolation: isolate; }
+  .energy-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(220px circle at var(--ex, 50%) var(--ey, 50%),
+                hsl(204 100% 56% / 0.16), transparent 62%);
+    opacity: 0;
+    transition: opacity .4s ease;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .energy-card:hover::after { opacity: 1; }
+  .energy-card:hover { border-color: hsl(204 90% 60% / 0.45); }
+  /* keep real content above the glow layer */
+  .energy-card > * { position: relative; z-index: 1; }
+
+  /* cursor-driven parallax depth (vars set on :root by CursorEnergy) */
+  .parallax-soft {
+    transform: translate3d(calc(var(--px, 0) * 10px), calc(var(--py, 0) * 10px), 0);
+    transition: transform .25s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+  }
+  .parallax-strong {
+    transform: translate3d(calc(var(--px, 0) * -22px), calc(var(--py, 0) * -18px), 0);
+    transition: transform .25s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .parallax-soft, .parallax-strong { transform: none; }
+}
