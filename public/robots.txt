@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /$
+Allow: /login
+Allow: /pricing
+Allow: /terms
+Allow: /privacy
+Disallow: /dashboard
+Disallow: /exam
+Disallow: /analytics
+Disallow: /guided
+Disallow: /knowledge
+
+Sitemap: https://claude-academy.app/sitemap.xml

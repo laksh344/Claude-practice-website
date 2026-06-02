@@ -1,29 +1,30 @@
 // ─────────────────────────────────────────────────────────────
-// Live Claude integration (runs inside the artifact sandbox).
-// Every call first RETRIEVES from the extracted CCA knowledge base
-// (the 98-question bank) and grounds the model in it, then degrades
-// gracefully to local fallbacks if the API is unreachable.
+// AI tutor client. Talks ONLY to our `tutor` Supabase Edge Function, which holds
+// the Anthropic key server-side, validates the user, and enforces quotas. The
+// browser never sees a model API key.
+//
+// Every call first RETRIEVES from the extracted CCA knowledge base and grounds
+// the model in it, then degrades gracefully to local fallbacks if the backend
+// is unconfigured or unreachable.
 // ─────────────────────────────────────────────────────────────
 import type { Question, Difficulty } from "@/data/seed";
 import { QUESTIONS, TOPICS } from "@/data/seed";
-
-const MODEL = "claude-sonnet-4-20250514";
-const ENDPOINT = "https://api.anthropic.com/v1/messages";
+import { aiBackendEnabled, invokeEdgeFunction } from "@/lib/repo";
+import { captureError } from "@/lib/observability";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
+/** True only when a real AI backend is reachable (Supabase project configured). */
+export const aiTutorLive = aiBackendEnabled;
+
 async function call(system: string, messages: Msg[], maxTokens = 1000): Promise<string> {
-  const res = await fetch(ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, system, messages }),
+  if (!aiBackendEnabled) throw new Error("ai backend disabled");
+  const { text } = await invokeEdgeFunction<{ text: string }>("tutor", {
+    system,
+    messages,
+    max_tokens: maxTokens,
   });
-  const data = await res.json();
-  const text = (data.content || [])
-    .filter((b: any) => b.type === "text")
-    .map((b: any) => b.text)
-    .join("\n");
-  if (!text) throw new Error("empty");
+  if (!text) throw new Error("empty response");
   return text.trim();
 }
 
@@ -32,7 +33,9 @@ function stripFences(s: string): string {
 }
 
 // ── Knowledge-base retrieval (lightweight keyword scorer over the bank) ──
-const STOP = new Set("the a an of to in on for and or is are be how what which when you your with that this it as do does using use into from at by".split(" "));
+const STOP = new Set(
+  "the a an of to in on for and or is are be how what which when you your with that this it as do does using use into from at by".split(" "),
+);
 function tokens(s: string): string[] {
   return (s.toLowerCase().match(/[a-z0-9_]+/g) || []).filter((t) => t.length > 2 && !STOP.has(t));
 }
@@ -45,7 +48,11 @@ export function retrieve(query: string, k = 4, topicId?: string): Question[] {
     for (const t of hay) if (qt.has(t)) score++;
     return { q, score };
   });
-  return scored.sort((a, b) => b.score - a.score).slice(0, k).filter((s) => s.score > 0).map((s) => s.q);
+  return scored
+    .sort((a, b) => b.score - a.score)
+    .slice(0, k)
+    .filter((s) => s.score > 0)
+    .map((s) => s.q);
 }
 
 function groundingBlock(qs: Question[]): string {
@@ -61,7 +68,8 @@ function groundingBlock(qs: Question[]): string {
   );
 }
 
-const DOMAINS = "Agentic Codebase Navigation, Context & Conversation Management, Support Agents (tool use & error handling), Structured Data Extraction, Claude Code for CI/CD, Code Generation with Claude Code, Customer Support Resolution, Tool Design & MCP Integration, Agentic Architecture & Orchestration, Prompt Engineering & Structured Output, and Model Selection (Opus/Sonnet/Haiku, thinking modes, effort, cost & latency)";
+const DOMAINS =
+  "Agentic Codebase Navigation, Context & Conversation Management, Support Agents (tool use & error handling), Structured Data Extraction, Claude Code for CI/CD, Code Generation with Claude Code, Customer Support Resolution, Tool Design & MCP Integration, Agentic Architecture & Orchestration, Prompt Engineering & Structured Output, and Model Selection (Opus/Sonnet/Haiku, thinking modes, effort, cost & latency)";
 
 const TUTOR_SYSTEM = `You are the AI Tutor inside Claude Certification Academy, coaching an engineer toward the Claude Certified Architect exam.
 The exam covers these domains: ${DOMAINS}.
@@ -72,7 +80,8 @@ export async function askTutor(history: Msg[]): Promise<string> {
   const grounded = TUTOR_SYSTEM + groundingBlock(retrieve(lastUser, 4));
   try {
     return await call(grounded, history, 900);
-  } catch {
+  } catch (e) {
+    if (aiBackendEnabled) captureError(e, { area: "askTutor" });
     const hit = retrieve(lastUser, 1)[0];
     if (hit) {
       return `Here's the key idea, grounded in the exam material:\n\n${hit.prompt}\n\nThe right approach is: ${hit.options[hit.correct]} — ${hit.explanation}\n\nWant to drill a few questions on this?`;
@@ -81,7 +90,10 @@ export async function askTutor(history: Msg[]): Promise<string> {
   }
 }
 
-export async function explainMistake(q: Question, selectedIdx: number): Promise<{ explanation: string; mistakeType: string }> {
+export async function explainMistake(
+  q: Question,
+  selectedIdx: number,
+): Promise<{ explanation: string; mistakeType: string }> {
   const types = ["knowledge gap", "misread question", "distractor selection", "partial understanding", "overconfidence"];
   const userMsg = `Question: ${q.prompt}
 Options: ${q.options.map((o, i) => `${String.fromCharCode(65 + i)}. ${o}`).join(" | ")}
@@ -91,16 +103,32 @@ Reference explanation (authoritative): ${q.explanation}
 
 Return ONLY JSON: {"explanation": "<=70 words coaching the learner on the gap, consistent with the reference", "mistakeType": one of ${JSON.stringify(types)}}`;
   try {
-    const raw = await call("You classify exam mistakes and coach concisely, grounded in the reference explanation. Output JSON only.", [{ role: "user", content: userMsg }], 400);
-    const parsed = JSON.parse(stripFences(raw));
-    if (parsed.explanation && types.includes(parsed.mistakeType)) return parsed;
+    const raw = await call(
+      "You classify exam mistakes and coach concisely, grounded in the reference explanation. Output JSON only.",
+      [{ role: "user", content: userMsg }],
+      400,
+    );
+    const parsed = JSON.parse(stripFences(raw)) as { explanation?: unknown; mistakeType?: unknown };
+    if (
+      typeof parsed.explanation === "string" &&
+      typeof parsed.mistakeType === "string" &&
+      types.includes(parsed.mistakeType)
+    ) {
+      return { explanation: parsed.explanation, mistakeType: parsed.mistakeType };
+    }
     throw new Error("shape");
-  } catch {
+  } catch (e) {
+    if (aiBackendEnabled) captureError(e, { area: "explainMistake" });
     return { explanation: q.explanation, mistakeType: "knowledge gap" };
   }
 }
 
-export async function generateSimilar(topicName: string, subtopic: string, difficulty: Difficulty, topicId?: string): Promise<Question | null> {
+export async function generateSimilar(
+  topicName: string,
+  subtopic: string,
+  difficulty: Difficulty,
+  topicId?: string,
+): Promise<Question | null> {
   const exemplars = retrieve(subtopic + " " + topicName, 3, topicId);
   const exBlock = exemplars.length
     ? "\n\nStyle exemplars from the real exam (match this scenario-based style; do NOT copy verbatim):\n" +
@@ -112,20 +140,45 @@ Exactly 4 options, exactly one correct. Make distractors plausible competing app
 Return ONLY JSON:
 {"prompt":"...","options":["...","...","...","..."],"correct":<0-3>,"explanation":"why correct, <=60 words","objective":"one line"}`;
   try {
-    const raw = await call("You author rigorous, scenario-based certification questions consistent with the provided exemplars. Output JSON only, no prose.", [{ role: "user", content: userMsg }], 700);
-    const p = JSON.parse(stripFences(raw));
-    if (Array.isArray(p.options) && p.options.length === 4 && typeof p.correct === "number") {
+    const raw = await call(
+      "You author rigorous, scenario-based certification questions consistent with the provided exemplars. Output JSON only, no prose.",
+      [{ role: "user", content: userMsg }],
+      700,
+    );
+    const p = JSON.parse(stripFences(raw)) as {
+      prompt?: unknown;
+      options?: unknown;
+      correct?: unknown;
+      explanation?: unknown;
+      objective?: unknown;
+    };
+    if (
+      typeof p.prompt === "string" &&
+      Array.isArray(p.options) &&
+      p.options.length === 4 &&
+      p.options.every((o): o is string => typeof o === "string") &&
+      typeof p.correct === "number" &&
+      p.correct >= 0 &&
+      p.correct <= 3
+    ) {
       return {
         id: "gen-" + Math.random().toString(36).slice(2, 8),
-        topicId: topicId || "generated", subtopic, difficulty,
-        prompt: p.prompt, options: p.options, correct: p.correct,
-        explanation: p.explanation || "", objective: p.objective || "",
-        source: "AI-generated", tags: ["ai-generated"],
+        topicId: topicId || "generated",
+        subtopic,
+        difficulty,
+        prompt: p.prompt,
+        options: p.options,
+        correct: p.correct,
+        explanation: typeof p.explanation === "string" ? p.explanation : "",
+        objective: typeof p.objective === "string" ? p.objective : "",
+        source: "AI-generated",
+        tags: ["ai-generated"],
       };
     }
     throw new Error("shape");
-  } catch {
-    // fall back to a real bank question in the same domain the learner hasn't necessarily seen
+  } catch (e) {
+    if (aiBackendEnabled) captureError(e, { area: "generateSimilar" });
+    // fall back to a real bank question in the same domain
     const pool = retrieve(subtopic + " " + topicName, 6, topicId);
     return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
   }

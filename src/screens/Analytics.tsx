@@ -43,6 +43,18 @@ export function Analytics() {
     return () => { cancelled = true; };
   }, [result]);
 
+  // Computed before the early return so the hook order is stable (rules-of-hooks).
+  const mistakeDist = useMemo(() => {
+    if (!result) return [] as { name: string; value: number; n: number }[];
+    const counts: Record<string, number> = {};
+    result.wrong.forEach((it) => {
+      const m = analysis[it.q.id]?.mistakeType || "knowledge gap";
+      counts[m] = (counts[m] || 0) + 1;
+    });
+    const total = result.wrong.length || 1;
+    return Object.entries(counts).map(([name, n]) => ({ name, value: Math.round((n / total) * 100), n }));
+  }, [analysis, result]);
+
   if (!result) {
     return (
       <div className="min-h-screen bg-secondary/30">
@@ -63,16 +75,6 @@ export function Analytics() {
   const passProb = Math.min(99, Math.round(readiness * 1.05));
   const prevReadiness = previousResult ? Math.min(99, Math.round(previousResult.score * 0.6 + 36)) : null;
   const readinessDelta = prevReadiness != null ? readiness - prevReadiness : null;
-
-  const mistakeDist = useMemo(() => {
-    const counts: Record<string, number> = {};
-    result.wrong.forEach((it) => {
-      const m = analysis[it.q.id]?.mistakeType || "knowledge gap";
-      counts[m] = (counts[m] || 0) + 1;
-    });
-    const total = result.wrong.length || 1;
-    return Object.entries(counts).map(([name, n]) => ({ name, value: Math.round((n / total) * 100), n }));
-  }, [analysis, result.wrong]);
 
   const timePct = Math.round((result.timeUsedSec / result.durationSec) * 100);
   const weakest = result.byTopic[0];

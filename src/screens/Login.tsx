@@ -3,7 +3,7 @@ import { Logo } from "@/components/primitives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useStore } from "@/lib/store";
-import { CERTIFICATION } from "@/data/seed";
+import { CERTIFICATION, QUESTIONS, TOPICS } from "@/data/seed";
 import { useState } from "react";
 
 export function Login() {
@@ -42,8 +42,8 @@ export function Login() {
             <h2 className="text-4xl font-bold leading-tight tracking-tight text-white text-balance">The fastest path to your Claude certification.</h2>
             <p className="mt-4 max-w-sm text-white/60">Mock exams, deep analytics, and a live AI tutor — all in one premium study platform.</p>
             <div className="mt-8 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-white/80">
-              <div className="text-3xl font-bold">89%</div>
-              <div className="text-sm">of Mentor-plan members report feeling exam-ready within 2 weeks.</div>
+              <div className="text-3xl font-bold">{QUESTIONS.length}</div>
+              <div className="text-sm">exam-style questions across all {TOPICS.length} domains, weighted to the real blueprint.</div>
             </div>
           </div>
         </div>

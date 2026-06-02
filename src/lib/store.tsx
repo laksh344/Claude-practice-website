@@ -1,12 +1,12 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { QUESTIONS, TOPICS, DASHBOARD_SEED } from "@/data/seed";
 import type { Question } from "@/data/seed";
 import {
-  completeAuthRedirect,
-  consumeAuthRedirect,
   ensureAuthUser,
   getCurrentSession,
+  handleAuthRedirect,
+  loadEntitlement,
   loadState,
   persistenceEnabled,
   saveExamResult,
@@ -16,9 +16,22 @@ import {
   signOutAuth,
 } from "@/lib/repo";
 import type { AuthProvider, AuthSession } from "@/lib/repo";
+import { captureError } from "@/lib/observability";
 
-export type Route = "landing" | "login" | "dashboard" | "exam" | "analytics" | "guided" | "pricing" | "knowledge";
+export type Route = "landing" | "login" | "dashboard" | "exam" | "analytics" | "guided" | "pricing" | "knowledge" | "terms" | "privacy";
 export type Plan = "free" | "pro" | "mentor";
+
+// Browser-history routing: every route maps to a real URL so deep links, the
+// back/forward buttons, and page refresh all resolve correctly.
+const ROUTE_PATHS: Record<Route, string> = {
+  landing: "/", login: "/login", dashboard: "/dashboard", exam: "/exam",
+  analytics: "/analytics", guided: "/guided", pricing: "/pricing",
+  knowledge: "/knowledge", terms: "/terms", privacy: "/privacy",
+};
+const PROTECTED_ROUTES = new Set<Route>(["dashboard", "exam", "analytics", "guided", "knowledge"]);
+export function routeFromPath(path: string): Route {
+  return (Object.keys(ROUTE_PATHS) as Route[]).find((r) => ROUTE_PATHS[r] === path) ?? "landing";
+}
 
 export interface ExamItem { q: Question; selected: number | null; flagged: boolean }
 export interface ExamResult {
@@ -74,6 +87,7 @@ interface Store {
   demoMode: boolean;
   setDemoMode: (v: boolean) => void;
   logPractice: (topicId: string, correct: boolean) => void;
+  reloadEntitlement: () => Promise<void>;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -105,7 +119,7 @@ function ago(ts?: number): string {
 
 // Derive the user's profile entirely from their real in-session activity —
 // or from the labelled sample dataset when demo mode is on.
-function computeProfile(results: ExamResult[], practice: PracticeEntry[], demoMode: boolean): Profile {
+export function computeProfile(results: ExamResult[], practice: PracticeEntry[], demoMode: boolean): Profile {
   if (demoMode) {
     const d = DASHBOARD_SEED;
     return {
@@ -160,7 +174,10 @@ function computeProfile(results: ExamResult[], practice: PracticeEntry[], demoMo
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [route, setRoute] = useState<Route>("landing");
+  const [route, setRoute] = useState<Route>(() =>
+    typeof window !== "undefined" ? routeFromPath(window.location.pathname) : "landing",
+  );
+  const poppingRef = useRef(false);
   const [user, setUser] = useState<AppUser | null>(null);
   const [plan, setPlan] = useState<Plan>("free");
   const [result, setResultState] = useState<ExamResult | null>(null);
@@ -186,10 +203,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setUser({ id, name, email: session.user.email });
     setUserId(id);
     setAccessToken(session.access_token);
-    setRoute("dashboard");
+    // Land on the dashboard after an explicit sign-in, but preserve a deep link
+    // (e.g. /knowledge) when a stored session is restored.
+    setRoute((cur) => (cur === "landing" || cur === "login" ? "dashboard" : cur));
     const loaded = await loadState(id, session.access_token);
     setResults(loaded.results);
     setPractice(loaded.practice);
+    // Plan is authoritative from the server (entitlements table), never trusted
+    // from client state.
+    const entitled = await loadEntitlement(session.access_token);
+    setPlan(entitled);
   };
 
   useEffect(() => {
@@ -200,17 +223,37 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     void (async () => {
       try {
-        const redirectSession = consumeAuthRedirect();
-        const session = redirectSession ? await completeAuthRedirect(redirectSession) : await getCurrentSession();
+        const session = (await handleAuthRedirect()) ?? (await getCurrentSession());
         if (!cancelled && session) await applySession(session);
       } catch (e) {
         console.warn("[store] auth restore failed", e);
+        captureError(e, { area: "auth-restore" });
       } finally {
         if (!cancelled) setAuthLoading(false);
       }
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // Back/forward navigation updates the route from the URL.
+  useEffect(() => {
+    const onPop = () => { poppingRef.current = true; setRoute(routeFromPath(window.location.pathname)); };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  // Programmatic route changes push a matching history entry (skipped when the
+  // change itself came from a back/forward pop).
+  useEffect(() => {
+    if (poppingRef.current) { poppingRef.current = false; return; }
+    const target = ROUTE_PATHS[route];
+    if (window.location.pathname !== target) window.history.pushState({}, "", target);
+  }, [route]);
+
+  // Guard protected routes once auth is resolved (covers deep links + pops).
+  useEffect(() => {
+    if (!authLoading && !user && PROTECTED_ROUTES.has(route)) setRoute("login");
+  }, [route, user, authLoading]);
 
   // Archive the current result before a new one replaces it, append it to the
   // session history that powers the profile, and (when configured) persist it.
@@ -303,7 +346,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setRoute("dashboard");
         return;
       }
-      signInWithProvider(provider);
+      void signInWithProvider(provider);
+    },
+    reloadEntitlement: async () => {
+      setPlan(await loadEntitlement(accessToken));
     },
     signOut: () => {
       void signOutAuth(accessToken);

@@ -19,14 +19,33 @@ export function Exam() {
   const DURATION = items.length * 90; // 90s per question
   const [left, setLeft] = useState(DURATION);
   const [confirm, setConfirm] = useState(false);
-  const startedAt = useRef(Date.now());
+  const startedAt = useRef(0);
   const cur = items[idx];
 
+  const answered = items.filter((i) => i.selected !== null).length;
+  const flagged = items.filter((i) => i.flagged).length;
+
+  const setSelected = (oi: number) =>
+    setItems((p) => p.map((it, i) => (i === idx ? { ...it, selected: oi } : it)));
+  const toggleFlag = () =>
+    setItems((p) => p.map((it, i) => (i === idx ? { ...it, flagged: !it.flagged } : it)));
+
+  const submit = () => {
+    const startedMs = startedAt.current || Date.now();
+    const used = Math.min(DURATION, Math.round((Date.now() - startedMs) / 1000));
+    setResult(gradeExam(items, used, DURATION));
+    go("analytics");
+  };
+
+  useEffect(() => { startedAt.current = Date.now(); }, []);
   useEffect(() => {
     const t = setInterval(() => setLeft((s) => (s <= 1 ? 0 : s - 1)), 1000);
     return () => clearInterval(t);
   }, []);
-  useEffect(() => { if (left === 0) submit(); /* eslint-disable-next-line */ }, [left]);
+  useEffect(() => {
+    if (left === 0) submit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [left]);
 
   // Keyboard shortcuts: 1-5 to answer, F to flag, ←/→ to navigate.
   useEffect(() => {
@@ -47,22 +66,8 @@ export function Exam() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    /* eslint-disable-next-line */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cur, idx, items.length, confirm]);
-
-  const answered = items.filter((i) => i.selected !== null).length;
-  const flagged = items.filter((i) => i.flagged).length;
-
-  const setSelected = (oi: number) =>
-    setItems((p) => p.map((it, i) => (i === idx ? { ...it, selected: oi } : it)));
-  const toggleFlag = () =>
-    setItems((p) => p.map((it, i) => (i === idx ? { ...it, flagged: !it.flagged } : it)));
-
-  const submit = () => {
-    const used = Math.min(DURATION, Math.round((Date.now() - startedAt.current) / 1000));
-    setResult(gradeExam(items, used, DURATION));
-    go("analytics");
-  };
 
   const mm = String(Math.floor(left / 60)).padStart(2, "0");
   const ss = String(left % 60).padStart(2, "0");
@@ -101,12 +106,14 @@ export function Exam() {
               transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             >
               <h2 className="mt-3 text-2xl font-semibold leading-snug tracking-tight">{cur.q.prompt}</h2>
-              <div className="mt-6 space-y-3">
+              <div className="mt-6 space-y-3" role="radiogroup" aria-label="Answer options">
                 {cur.q.options.map((opt, oi) => {
                   const sel = cur.selected === oi;
                   return (
                     <button
                       key={oi}
+                      role="radio"
+                      aria-checked={sel}
                       onClick={() => setSelected(oi)}
                       className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 ${sel ? "border-primary bg-primary/[0.04] ring-1 ring-primary" : "border-border hover:border-foreground/30 hover:bg-secondary/50"}`}
                     >

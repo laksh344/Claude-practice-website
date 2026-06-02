@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { TopNav } from "@/components/TopNav";
 import { Footer } from "@/screens/Landing";
@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useStore } from "@/lib/store";
 import type { Plan } from "@/lib/store";
+import { createCheckoutSession } from "@/lib/repo";
+import { captureError } from "@/lib/observability";
 import { Check, Minus, Sparkles, CreditCard, Smartphone, ShieldCheck, CheckCircle2, Loader2 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -38,27 +40,66 @@ const MATRIX: { label: string; free: boolean | string; pro: boolean | string; me
 ];
 
 export function Pricing() {
-  const { setPlan, go, plan } = useStore();
+  const { setPlan, go, plan, persistenceEnabled, reloadEntitlement } = useStore();
   const [checkout, setCheckout] = useState<typeof TIERS[number] | null>(null);
   const [method, setMethod] = useState<"upi" | "card">("upi");
   const [stage, setStage] = useState<"form" | "processing" | "done">("form");
   const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
+  const [payError, setPayError] = useState("");
+  const [justUpgraded, setJustUpgraded] = useState(false);
   const priceFor = (id: Plan) => (billing === "annual" ? ANNUAL_PRICE[id] : TIERS.find((t) => t.id === id)!.price);
   const perFor = (id: Plan) => (id === "free" ? "" : "/mo");
 
-  const pay = () => {
+  // Returning from Stripe Checkout: confirm and refresh the server entitlement.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("checkout") === "success") {
+      setJustUpgraded(true);
+      void reloadEntitlement();
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const pay = async () => {
+    if (!checkout) return;
+    setPayError("");
+    // Real payments: redirect to Stripe Checkout; the webhook grants the plan.
+    if (persistenceEnabled && checkout.id !== "free") {
+      setStage("processing");
+      try {
+        const url = await createCheckoutSession(checkout.id as Exclude<Plan, "free">);
+        if (url) {
+          window.location.href = url;
+          return;
+        }
+        throw new Error("no checkout url returned");
+      } catch (e) {
+        captureError(e, { area: "checkout", plan: checkout.id });
+        setStage("form");
+        setPayError("Could not start secure checkout. Please try again.");
+      }
+      return;
+    }
+    // Demo fallback when no backend is configured (clearly labelled below).
     setStage("processing");
     setTimeout(() => {
-      if (checkout) setPlan(checkout.id);
+      setPlan(checkout.id);
       setStage("done");
-    }, 1800);
+    }, 1200);
   };
-  const close = () => { setCheckout(null); setStage("form"); };
+  const close = () => { setCheckout(null); setStage("form"); setPayError(""); };
 
   return (
     <div className="min-h-screen bg-background">
       <TopNav active="pricing" />
       <main className="mx-auto max-w-[1200px] px-5 py-16 md:px-8 md:py-24">
+        {justUpgraded && (
+          <div className="mb-8 flex items-center gap-3 rounded-2xl border border-success/40 bg-success/[0.06] p-4 text-sm" role="status">
+            <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />
+            <span>Payment received — your plan is now <span className="font-semibold capitalize">{plan}</span>. It may take a moment to reflect everywhere.</span>
+          </div>
+        )}
         <Reveal>
           <div className="text-center">
             <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-3 py-1 text-xs font-semibold text-primary"><Sparkles className="h-3.5 w-3.5" /> Launch pricing</div>
@@ -186,29 +227,40 @@ export function Pricing() {
                 <span className="font-medium">{checkout?.name} plan</span>
                 <span className="font-bold">{checkout?.price}{checkout?.per}</span>
               </div>
-              <div className="mt-1 grid grid-cols-2 gap-2">
-                <button onClick={() => setMethod("upi")} className={`flex items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-medium ${method === "upi" ? "border-primary bg-primary/[0.04] text-primary" : "border-border"}`}><Smartphone className="h-4 w-4" /> UPI</button>
-                <button onClick={() => setMethod("card")} className={`flex items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-medium ${method === "card" ? "border-primary bg-primary/[0.04] text-primary" : "border-border"}`}><CreditCard className="h-4 w-4" /> Card</button>
-              </div>
-              <AnimatePresence mode="wait">
-                <motion.div key={method} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-2 space-y-2.5">
-                  {method === "upi" ? (
-                    <Input placeholder="yourname@upi" className="h-11 rounded-xl bg-secondary" defaultValue="laksh@oksbi" />
-                  ) : (
-                    <>
-                      <Input placeholder="Card number" className="h-11 rounded-xl bg-secondary" defaultValue="4242 4242 4242 4242" />
-                      <div className="grid grid-cols-2 gap-2.5">
-                        <Input placeholder="MM / YY" className="h-11 rounded-xl bg-secondary" defaultValue="04 / 28" />
-                        <Input placeholder="CVC" className="h-11 rounded-xl bg-secondary" defaultValue="123" />
-                      </div>
-                    </>
-                  )}
-                </motion.div>
-              </AnimatePresence>
+              {persistenceEnabled ? (
+                <p className="mt-2 flex items-center gap-2 rounded-xl border border-border px-4 py-3 text-sm text-muted-foreground">
+                  <ShieldCheck className="h-4 w-4 shrink-0 text-success" /> You'll be redirected to Stripe's secure checkout to complete payment.
+                </p>
+              ) : (
+                <>
+                  <div className="mt-1 grid grid-cols-2 gap-2">
+                    <button onClick={() => setMethod("upi")} className={`flex items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-medium ${method === "upi" ? "border-primary bg-primary/[0.04] text-primary" : "border-border"}`}><Smartphone className="h-4 w-4" /> UPI</button>
+                    <button onClick={() => setMethod("card")} className={`flex items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-medium ${method === "card" ? "border-primary bg-primary/[0.04] text-primary" : "border-border"}`}><CreditCard className="h-4 w-4" /> Card</button>
+                  </div>
+                  <AnimatePresence mode="wait">
+                    <motion.div key={method} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-2 space-y-2.5">
+                      {method === "upi" ? (
+                        <Input placeholder="yourname@upi" className="h-11 rounded-xl bg-secondary" defaultValue="demo@upi" />
+                      ) : (
+                        <>
+                          <Input placeholder="Card number" className="h-11 rounded-xl bg-secondary" defaultValue="4242 4242 4242 4242" />
+                          <div className="grid grid-cols-2 gap-2.5">
+                            <Input placeholder="MM / YY" className="h-11 rounded-xl bg-secondary" defaultValue="04 / 28" />
+                            <Input placeholder="CVC" className="h-11 rounded-xl bg-secondary" defaultValue="123" />
+                          </div>
+                        </>
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
+                </>
+              )}
+              {payError && <p role="alert" className="text-sm font-medium text-destructive">{payError}</p>}
               <Button className="mt-2 h-11 w-full rounded-full text-base" onClick={pay} disabled={stage === "processing"}>
-                {stage === "processing" ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing…</> : <>Pay {checkout?.price} securely</>}
+                {stage === "processing"
+                  ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing…</>
+                  : persistenceEnabled ? <>Continue to secure checkout</> : <>Pay {checkout?.price}</>}
               </Button>
-              <p className="text-center text-xs text-muted-foreground">No real charge — demo checkout.</p>
+              <p className="text-center text-xs text-muted-foreground">{persistenceEnabled ? "Secured by Stripe · cancel anytime" : "No real charge — demo checkout."}</p>
             </>
           )}
         </DialogContent>

@@ -7,7 +7,7 @@ import { Bar } from "@/components/primitives";
 import { useStore } from "@/lib/store";
 import { QUESTIONS, TOPICS } from "@/data/seed";
 import type { Question, Difficulty } from "@/data/seed";
-import { askTutor, explainMistake, generateSimilar } from "@/lib/claude";
+import { askTutor, explainMistake, generateSimilar, aiTutorLive } from "@/lib/claude";
 import { Sparkles, CheckCircle2, XCircle, Send, ArrowRight, Loader2, Wand2 } from "lucide-react";
 
 const LETTERS = ["A", "B", "C", "D", "E"];
@@ -188,7 +188,7 @@ function Session({ topicId, onExit }: { topicId: string; onExit: () => void }) {
                     {q.tags.includes("ai-generated") && <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 font-semibold text-primary"><Sparkles className="h-3 w-3" /> AI-generated</span>}
                   </div>
                   <h2 className="mt-3 text-xl font-semibold leading-snug tracking-tight">{q.prompt}</h2>
-                  <div className="mt-5 space-y-2.5">
+                  <div className="mt-5 space-y-2.5" role="radiogroup" aria-label="Answer options">
                     {q.options.map((opt, oi) => {
                       const isSel = selected === oi;
                       const showCorrect = phase === "feedback" && oi === q.correct;
@@ -196,6 +196,8 @@ function Session({ topicId, onExit }: { topicId: string; onExit: () => void }) {
                       return (
                         <button
                           key={oi}
+                          role="radio"
+                          aria-checked={isSel}
                           disabled={phase === "feedback"}
                           onClick={() => submit(oi)}
                           className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-default ${
@@ -237,7 +239,7 @@ function Session({ topicId, onExit }: { topicId: string; onExit: () => void }) {
           <div className="flex h-[560px] flex-col rounded-2xl border border-border bg-card">
             <div className="flex items-center gap-2 border-b border-border px-5 py-3.5">
               <div className="grid h-8 w-8 place-items-center rounded-full bg-primary"><Sparkles className="h-4 w-4 text-white" /></div>
-              <div><div className="text-sm font-semibold">AI Tutor</div><div className="text-xs text-success">● online · powered by Claude</div></div>
+              <div><div className="text-sm font-semibold">AI Tutor</div><div className={`text-xs ${aiTutorLive ? "text-success" : "text-muted-foreground"}`}>{aiTutorLive ? "● online · powered by Claude" : "○ offline mode · grounded in the question bank"}</div></div>
             </div>
             <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4 no-scrollbar">
               {chat.map((m, i) => (

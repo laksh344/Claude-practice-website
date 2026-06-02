@@ -7,7 +7,7 @@ import { useStore } from "@/lib/store";
 import { CERTIFICATION, TOPICS, QUESTIONS } from "@/data/seed";
 import {
   Sparkles, ArrowRight, Target, Brain, BarChart3, Gauge, Map, Check,
-  GraduationCap, ShieldCheck, Zap, Quote, ChevronDown,
+  GraduationCap, ShieldCheck, Zap, ChevronDown,
 } from "lucide-react";
 
 const features = [
@@ -19,10 +19,10 @@ const features = [
   { icon: ShieldCheck, title: "Grounded in the real domains", body: "All 11 exam domains — from agentic codebase navigation and context management to MCP integration, structured extraction, and model selection." },
 ];
 
-const TESTIMONIALS = [
-  { quote: "The mistake-type breakdown was the unlock. I stopped re-failing the same tool-use questions once the tutor named *why* I kept missing them.", name: "Arjun M.", role: "Backend Engineer", initials: "AM" },
-  { quote: "Mock exams that actually match the domain weights. My predicted score landed within a few points of my real result.", name: "Sara K.", role: "ML Platform Engineer", initials: "SK" },
-  { quote: "The guided practice ramps difficulty exactly when you're ready. It felt like a coach, not a quiz app.", name: "David R.", role: "Solutions Architect", initials: "DR" },
+const HOW_STEPS = [
+  { icon: Target, step: "01", title: "Simulate", body: "Take a timed mock exam weighted to the real domain blueprint, with palette, flagging, and review." },
+  { icon: BarChart3, step: "02", title: "Analyze", body: "See per-domain accuracy, mistake-type breakdowns, and time management — not just a score." },
+  { icon: Brain, step: "03", title: "Master", body: "Drill your weakest domains with the adaptive AI tutor until your readiness score says you're ready." },
 ];
 
 const FAQS = [
@@ -86,14 +86,11 @@ export function Landing() {
             </motion.p>
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 0.6 }}
-              className="mt-8 flex items-center gap-3 text-sm text-muted-foreground"
+              className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground"
             >
-              <div className="flex -space-x-2">
-                {["A", "S", "M", "K"].map((c, i) => (
-                  <div key={i} className="grid h-7 w-7 place-items-center rounded-full border-2 border-background bg-foreground text-[10px] font-semibold text-white">{c}</div>
-                ))}
-              </div>
-              Join 2,000+ professionals certified this month.
+              <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-success" /> {QUESTIONS.length} exam-style questions</span>
+              <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-success" /> All {TOPICS.length} exam domains</span>
+              <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-success" /> Adaptive AI tutor</span>
             </motion.div>
           </div>
 
@@ -203,24 +200,24 @@ export function Landing() {
         </div>
       </section>
 
-      {/* SOCIAL PROOF */}
+      {/* HOW IT WORKS */}
       <section className="border-t border-border bg-secondary/40">
         <div className="mx-auto max-w-[1200px] px-5 py-20 md:px-8 md:py-24">
           <Reveal>
-            <h2 className="text-center text-3xl font-bold tracking-tight md:text-4xl">Built by engineers who passed it.</h2>
-            <p className="mx-auto mt-3 max-w-md text-center text-lg text-muted-foreground">What members say after switching their prep to the Academy.</p>
+            <h2 className="text-center text-3xl font-bold tracking-tight md:text-4xl">A measured path to exam-ready.</h2>
+            <p className="mx-auto mt-3 max-w-md text-center text-lg text-muted-foreground">Three steps, repeated until your readiness score says you're ready.</p>
           </Reveal>
           <div className="mt-12 grid gap-5 md:grid-cols-3">
-            {TESTIMONIALS.map((t, i) => (
-              <Reveal key={t.role} delay={i * 0.06}>
-                <figure className="energy-card flex h-full flex-col rounded-2xl border border-border bg-card p-6">
-                  <Quote className="h-5 w-5 text-primary" />
-                  <blockquote className="mt-3 flex-1 text-[15px] leading-relaxed">{t.quote}</blockquote>
-                  <figcaption className="mt-5 flex items-center gap-3 border-t border-border pt-4">
-                    <div className="grid h-9 w-9 place-items-center rounded-full bg-foreground text-xs font-semibold text-white">{t.initials}</div>
-                    <div className="text-sm"><div className="font-semibold">{t.name}</div><div className="text-muted-foreground">{t.role}</div></div>
-                  </figcaption>
-                </figure>
+            {HOW_STEPS.map((s, i) => (
+              <Reveal key={s.step} delay={i * 0.06}>
+                <div className="energy-card flex h-full flex-col rounded-2xl border border-border bg-card p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="grid h-11 w-11 place-items-center rounded-xl bg-secondary text-primary"><s.icon className="h-5 w-5" /></div>
+                    <span className="text-sm font-bold text-muted-foreground/40">{s.step}</span>
+                  </div>
+                  <h3 className="mt-4 text-lg font-semibold">{s.title}</h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
+                </div>
               </Reveal>
             ))}
           </div>
@@ -293,18 +290,20 @@ function PricingPreview() {
 }
 
 export function Footer() {
+  const { go } = useStore();
   return (
     <footer className="border-t border-border bg-secondary/40">
       <div className="mx-auto flex max-w-[1200px] flex-col gap-6 px-5 py-10 md:flex-row md:items-center md:justify-between md:px-8">
         <div>
           <Logo />
-          <p className="mt-3 max-w-xs text-sm text-muted-foreground">© 2026 Claude Certification Academy. An independent study platform.</p>
+          <p className="mt-3 max-w-xs text-sm text-muted-foreground">© 2026 Claude Certification Academy. An independent study platform — not affiliated with, endorsed by, or sponsored by Anthropic.</p>
         </div>
-        <div className="grid grid-cols-2 gap-x-12 gap-y-2 text-sm text-muted-foreground sm:grid-cols-4">
-          {["Product", "Pricing", "Terms", "Privacy", "Support", "Status", "Blog", "Careers"].map((l) => (
-            <a key={l} href="#" className="hover:text-foreground">{l}</a>
-          ))}
-        </div>
+        <nav className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-muted-foreground" aria-label="Footer">
+          <button onClick={() => go("pricing")} className="rounded hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Pricing</button>
+          <button onClick={() => go("terms")} className="rounded hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Terms</button>
+          <button onClick={() => go("privacy")} className="rounded hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Privacy</button>
+          <a href="mailto:support@claude-academy.app" className="rounded hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Support</a>
+        </nav>
       </div>
     </footer>
   );
