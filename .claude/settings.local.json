@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls \"$HOME/.claude/skills\" 2>/dev/null && echo \"---skills dir exists---\" || echo \"---no skills dir---\")",
+      "Read(//c/Users/akash/.claude/**)",
+      "Bash(python scripts/search.py \"SaaS education exam prep\" --domain color -n 3)",
+      "Bash(ls node_modules)",
+      "Bash(which npx *)",
+      "Bash(corepack pnpm *)",
+      "Bash(npm install *)",
+      "Bash(git ls-remote *)",
+      "Bash(git init *)",
+      "Bash(git reset *)",
+      "Bash(git checkout *)"
+    ]
+  }
+}

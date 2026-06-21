@@ -40,7 +40,7 @@ export function Dashboard() {
               <h2 className="mt-5 text-2xl font-bold tracking-tight">Take your first diagnostic exam</h2>
               <p className="mx-auto mt-2 max-w-md text-muted-foreground">A short mock exam calibrates your readiness and unlocks personalized analytics, weak-area detection, and your AI study plan.</p>
               <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-                <Button size="lg" className="rounded-full px-7" onClick={() => go("exam")}>Start diagnostic exam <ArrowRight className="ml-1 h-4 w-4" /></Button>
+                <Button size="lg" variant="cta" className="rounded-full px-7" onClick={() => go("exam")}>Start diagnostic exam <ArrowRight className="ml-1 h-4 w-4" /></Button>
                 <Button size="lg" variant="outline" className="rounded-full px-7" onClick={() => setDemoMode(true)}>Explore with sample data</Button>
               </div>
               <p className="mt-3 text-xs text-muted-foreground">Sample data previews the full dashboard. Your real numbers appear the moment you start practicing.</p>

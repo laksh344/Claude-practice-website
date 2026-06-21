@@ -63,7 +63,7 @@ export function TopNav({ active }: { active?: Route }) {
 
       {/* mobile nav panel */}
       {open && (
-        <div className="border-t border-border bg-background/95 px-3 py-2 lg:hidden">
+        <div className="glass border-t border-border px-3 py-2 lg:hidden">
           <nav className="flex flex-col gap-0.5">
             {links.map((l) => (
               <button

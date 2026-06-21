@@ -32,6 +32,11 @@
     --success: 145 56% 49%;              /* #34C759 */
     --warning: 36 100% 52%;              /* #FF9F0A */
     --surface: 240 9% 96%;
+
+    /* warm conversion accent — trust-blue recedes, orange draws the eye to
+       the single primary action. #C2410C = 5.17:1 on white (WCAG AA). */
+    --cta: 21 89% 40%;                   /* #C2410C */
+    --cta-foreground: 0 0% 100%;
   }
 }
 
@@ -58,6 +63,16 @@
     background: rgba(10,10,12,0.6);
     backdrop-filter: saturate(180%) blur(20px);
     -webkit-backdrop-filter: saturate(180%) blur(20px);
+  }
+  /* Layered glass surface for cards floating over color/other cards.
+     ~62% translucent, 16px blur, hairline top highlight + ambient lift. */
+  .glass-card {
+    background: rgba(255,255,255,0.62);
+    backdrop-filter: saturate(180%) blur(16px);
+    -webkit-backdrop-filter: saturate(180%) blur(16px);
+    border: 1px solid rgba(255,255,255,0.6);
+    box-shadow: 0 24px 48px -16px rgba(0,0,0,0.18),
+                inset 0 1px 0 rgba(255,255,255,0.7);
   }
   .shadow-ambient {
     box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);

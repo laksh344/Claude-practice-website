@@ -145,7 +145,7 @@ export function Pricing() {
                 ) : t.id === "free" ? (
                   <Button variant="outline" className="mt-7 w-full rounded-full" onClick={() => { setPlan("free"); go("dashboard"); }}>Get started</Button>
                 ) : (
-                  <Button variant={t.popular ? "default" : "outline"} className="mt-7 w-full rounded-full" onClick={() => setCheckout({ ...t, price: priceFor(t.id), per: perFor(t.id) })}>Choose {t.name}</Button>
+                  <Button variant={t.popular ? "cta" : "outline"} className="mt-7 w-full rounded-full" onClick={() => setCheckout({ ...t, price: priceFor(t.id), per: perFor(t.id) })}>Choose {t.name}</Button>
                 )}
               </div>
             </Reveal>

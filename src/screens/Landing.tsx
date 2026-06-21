@@ -8,7 +8,14 @@ import { CERTIFICATION, TOPICS, QUESTIONS } from "@/data/seed";
 import {
   Sparkles, ArrowRight, Target, Brain, BarChart3, Gauge, Map, Check,
   GraduationCap, ShieldCheck, Zap, ChevronDown,
+  Compass, RefreshCw, EyeOff,
 } from "lucide-react";
+
+const PROBLEMS = [
+  { icon: Compass, title: "No clear path to prep", body: "The blueprint lists 11 domains but no one tells you where to start, what to skip, or when you're actually ready to sit the exam." },
+  { icon: RefreshCw, title: "No feedback loop", body: "Static question dumps mark you right or wrong and move on. You re-fail the same concepts because nothing explains why you missed them." },
+  { icon: EyeOff, title: "No visibility into weak spots", body: "A single score hides where you'll actually lose marks. You walk in guessing, not knowing which domains are dragging you down." },
+];
 
 const features = [
   { icon: Target, title: "Realistic mock exams", body: "A timed, full-length simulator with palette, flagging, and review — weighted to the real domain blueprint." },
@@ -45,12 +52,13 @@ export function Landing() {
       <section className="relative overflow-hidden">
         <div className="parallax-soft pointer-events-none absolute inset-0 bg-grid opacity-60" />
         <div className="parallax-strong pointer-events-none absolute -top-32 right-0 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
+        <div className="parallax-strong pointer-events-none absolute -bottom-24 -left-16 h-80 w-80 rounded-full bg-cta/10 blur-3xl" />
         <div className="relative mx-auto grid max-w-[1200px] items-center gap-12 px-5 py-16 md:px-8 md:py-24 lg:grid-cols-2">
           <div>
             <motion.div
               initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary/60 px-3 py-1 text-xs font-semibold text-primary"
+              className="mb-5 inline-flex items-center gap-1.5 rounded-full glass border border-border px-3 py-1 text-xs font-semibold text-primary"
             >
               <Sparkles className="h-3.5 w-3.5" /> NEW · AI Tutor V2 powered by Claude
             </motion.div>
@@ -73,7 +81,7 @@ export function Landing() {
               transition={{ duration: 0.6, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
               className="mt-8 flex flex-wrap items-center gap-3"
             >
-              <Button size="lg" className="rounded-full px-7 text-base" onClick={() => go("login")}>Start Learning</Button>
+              <Button size="lg" variant="cta" className="rounded-full px-7 text-base" onClick={() => go("login")}>Start Learning</Button>
               <Button size="lg" variant="outline" className="group rounded-full px-7 text-base" onClick={() => go("login")}>
                 Take Mock Exam <ArrowRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </Button>
@@ -112,7 +120,7 @@ export function Landing() {
             </div>
             <motion.div
               initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7, duration: 0.6 }}
-              className="absolute -bottom-8 -left-2 w-72 rounded-2xl border border-border bg-card p-4 shadow-lift md:-left-10"
+              className="absolute -bottom-8 -left-2 w-72 rounded-2xl glass-card p-4 md:-left-10"
             >
               <div className="flex items-start gap-3">
                 <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary"><Sparkles className="h-4 w-4 text-white" /></div>
@@ -156,10 +164,33 @@ export function Landing() {
         </div>
       </section>
 
-      {/* FEATURES */}
+      {/* PROBLEM */}
+      <section className="mx-auto max-w-[1200px] px-5 pt-20 md:px-8 md:pt-28">
+        <Reveal>
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary/60 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">The problem</div>
+          <h2 className="mt-4 max-w-2xl text-3xl font-bold tracking-tight md:text-5xl text-balance">Studying harder isn't the problem. Studying blind is.</h2>
+          <p className="mt-4 max-w-xl text-lg text-muted-foreground">Most candidates grind through question banks and still walk in unsure. Three gaps are why.</p>
+        </Reveal>
+        <div className="mt-12 grid gap-5 sm:grid-cols-3">
+          {PROBLEMS.map((p, i) => (
+            <Reveal key={p.title} delay={i * 0.05}>
+              <div className="h-full rounded-2xl border border-border bg-secondary/40 p-6">
+                <div className="grid h-11 w-11 place-items-center rounded-xl bg-card text-cta shadow-soft">
+                  <p.icon className="h-5 w-5" />
+                </div>
+                <h3 className="mt-4 text-lg font-semibold">{p.title}</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{p.body}</p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      {/* FEATURES — the solution */}
       <section className="mx-auto max-w-[1200px] px-5 py-20 md:px-8 md:py-28">
         <Reveal>
-          <h2 className="max-w-2xl text-3xl font-bold tracking-tight md:text-5xl text-balance">Everything you need to walk in ready.</h2>
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-accent px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-accent-foreground">The solution</div>
+          <h2 className="mt-4 max-w-2xl text-3xl font-bold tracking-tight md:text-5xl text-balance">Everything you need to walk in ready.</h2>
           <p className="mt-4 max-w-xl text-lg text-muted-foreground">Not a quiz site. A complete readiness system: simulate, analyze, learn from mistakes, and let an AI coach close every gap.</p>
         </Reveal>
         <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">

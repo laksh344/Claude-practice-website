@@ -23,6 +23,7 @@ module.exports = {
         success: "hsl(var(--success))",
         warning: "hsl(var(--warning))",
         surface: "hsl(var(--surface))",
+        cta: { DEFAULT: "hsl(var(--cta))", foreground: "hsl(var(--cta-foreground))" },
       },
       borderRadius: {
         '2xl': "1.25rem",
